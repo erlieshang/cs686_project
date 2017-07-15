@@ -7,6 +7,7 @@ from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras.engine.topology import Layer
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 
 class FractionalMaxPooling(Layer):
@@ -30,7 +31,7 @@ class FractionalMaxPooling(Layer):
 
 class NNBase(object):
     def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, data_augmentation=True,
-                 batch_size=32):
+                 batch_size=32, name='Default'):
         self.x_train = x_train.astype('float32') / 255
         self.y_train = keras.utils.to_categorical(y_train, num_classes)
         self.x_test = x_test.astype('float32') / 255
@@ -39,6 +40,7 @@ class NNBase(object):
         self.epochs = epochs
         self.data_aug = data_augmentation
         self.batch_size = batch_size
+        self.name = name
         self.model = self._build_model()
 
     def _build_model(self):
@@ -48,8 +50,25 @@ class NNBase(object):
     def train(self):
         if not self.data_aug:
             print('Not using data augmentation.')
-            self.model.fit(self.x_train, self.y_train, batch_size=self.batch_size, epochs=self.epochs,
-                           validation_data=(self.x_test, self.y_test))
+            history = self.model.fit(self.x_train, self.y_train, batch_size=self.batch_size, epochs=self.epochs,
+                                     validation_data=(self.x_test, self.y_test))
+            plt.plot(history.epoch, history.history['val_acc'], color='blue', label='testing accuracy')
+            plt.plot(history.epoch, history.history['acc'], color='red', label='training accuracy')
+            plt.title('Accuracy Rate Curve')
+            plt.xlabel('Epochs')
+            plt.ylabel('Accuracy Rate')
+            plt.grid()
+            plt.savefig(self.name + '_accuracy.png')
+            plt.close('all')
+            plt.plot(history.epoch, history.history['val_loss'], color='blue', label='testing loss')
+            plt.plot(history.epoch, history.history['loss'], color='red', label='training loss')
+            plt.title('Loss Curve')
+            plt.xlabel('Epochs')
+            plt.ylabel('Loss')
+            plt.grid()
+            plt.savefig(self.name + '_loss.png')
+            plt.close('all')
+
         else:
             print('Using real-time data augmentation.')
             datagen = ImageDataGenerator(
@@ -72,9 +91,9 @@ class NNBase(object):
 
 class CNN(NNBase):
     def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, data_augmentation=True,
-                 batch_size=32, use_fmp=False):
+                 batch_size=32, use_fmp=False, name='default'):
         self.use_fmp = use_fmp
-        NNBase.__init__(self, x_train, y_train, x_test, y_test, num_classes, epochs, data_augmentation, batch_size)
+        NNBase.__init__(self, x_train, y_train, x_test, y_test, num_classes, epochs, data_augmentation, batch_size, name)
 
     def _build_model(self):
         model = Sequential()
@@ -107,7 +126,7 @@ class CNN(NNBase):
 
 
 class DNN(NNBase):
-    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, batch_size=32):
+    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, batch_size=32, name='default'):
         self.x_train = x_train.astype('float32') / 255
         self.y_train = keras.utils.to_categorical(y_train, num_classes)
         self.x_test = x_test.astype('float32') / 255
@@ -121,6 +140,7 @@ class DNN(NNBase):
         self.epochs = epochs
         self.data_aug = False
         self.batch_size = batch_size
+        self.name = name
         self.model = self._build_model()
 
     def _build_model(self):
@@ -137,10 +157,10 @@ class DNN(NNBase):
 
 def main():
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=True)
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=True, epochs=200, name='cnn_fmp')
     cnn.train()
-    # dnn = DNN(x_train, y_train, x_test, y_test, 10)
-    # dnn.train()
+    dnn = DNN(x_train, y_train, x_test, y_test, 10, epochs=200, name='dnn')
+    dnn.train()
 
 
 if __name__ == "__main__":
