@@ -3,33 +3,10 @@ import keras
 from keras.datasets import cifar10
 from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten
+from keras.layers import Dense, Dropout, Flatten, Lambda
 from keras.layers import Conv2D, MaxPooling2D
-from keras.engine.topology import Layer
 import tensorflow as tf
 import matplotlib.pyplot as plt
-
-
-class FractionalMaxPooling(Layer):
-    def __init__(self, pooling_ratio, pseudo_random=None, overlapping=None, **kwargs):
-        super(FractionalMaxPooling, self).__init__(**kwargs)
-        self.pooling_ratio = [1.0, pooling_ratio, pooling_ratio, 1.0]
-        self.pseudo_random = pseudo_random
-        self.overlapping = overlapping
-        self.output_x = None
-        self.output_y = None
-
-    def build(self, input_shape):
-        super(FractionalMaxPooling, self).build(input_shape)
-
-    def call(self, x):
-        output = tf.nn.fractional_max_pool(x, self.pooling_ratio, self.pseudo_random, self.overlapping)
-        self.output_x = output[0].shape[1].value
-        self.output_y = output[0].shape[2].value
-        return output[0]
-
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], self.output_x, self.output_y, input_shape[3])
 
 
 class NNBase(object):
@@ -104,7 +81,7 @@ class CNN(NNBase):
         model.add(Conv2D(32, (3, 3), padding='same', input_shape=self.x_train.shape[1:], activation='relu'))
         model.add(Conv2D(32, (3, 3), activation='relu'))
         if self.use_fmp:
-            model.add(FractionalMaxPooling(1.44))
+            model.add(Lambda(self.fmp))
         else:
             model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Dropout(0.2))
@@ -112,7 +89,7 @@ class CNN(NNBase):
         model.add(Conv2D(64, (3, 3), padding='same', activation='relu'))
         model.add(Conv2D(64, (3, 3), activation='relu'))
         if self.use_fmp:
-            model.add(FractionalMaxPooling(1.44))
+            model.add(Lambda(self.fmp))
         else:
             model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Dropout(0.2))
@@ -126,6 +103,11 @@ class CNN(NNBase):
         opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
         model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
         return model
+
+    @staticmethod
+    def fmp(x):
+        output = tf.nn.fractional_max_pool(x, [1.0, 1.44, 1.44, 1.0], None, None)
+        return output[0]
 
 
 class DNN(NNBase):
