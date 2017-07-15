@@ -19,6 +19,9 @@ class FractionalMaxPooling(Layer):
         self.output_x = None
         self.output_y = None
 
+    def build(self, input_shape):
+        super(FractionalMaxPooling, self).build(input_shape)
+
     def call(self, x):
         output = tf.nn.fractional_max_pool(x, self.pooling_ratio, self.pseudo_random, self.overlapping)
         self.output_x = output[0].shape[1].value
@@ -52,23 +55,6 @@ class NNBase(object):
             print('Not using data augmentation.')
             history = self.model.fit(self.x_train, self.y_train, batch_size=self.batch_size, epochs=self.epochs,
                                      validation_data=(self.x_test, self.y_test))
-            plt.plot(history.epoch, history.history['val_acc'], color='blue', label='testing accuracy')
-            plt.plot(history.epoch, history.history['acc'], color='red', label='training accuracy')
-            plt.title('Accuracy Rate Curve')
-            plt.xlabel('Epochs')
-            plt.ylabel('Accuracy Rate')
-            plt.grid()
-            plt.savefig(self.name + '_accuracy.png')
-            plt.close('all')
-            plt.plot(history.epoch, history.history['val_loss'], color='blue', label='testing loss')
-            plt.plot(history.epoch, history.history['loss'], color='red', label='training loss')
-            plt.title('Loss Curve')
-            plt.xlabel('Epochs')
-            plt.ylabel('Loss')
-            plt.grid()
-            plt.savefig(self.name + '_loss.png')
-            plt.close('all')
-
         else:
             print('Using real-time data augmentation.')
             datagen = ImageDataGenerator(
@@ -84,9 +70,26 @@ class NNBase(object):
                 vertical_flip=False)
 
             datagen.fit(self.x_train)
-            self.model.fit_generator(datagen.flow(self.x_train, self.y_train, batch_size=self.batch_size),
-                                     steps_per_epoch=self.x_train.shape[0] // self.batch_size, epochs=self.epochs,
-                                     validation_data=(self.x_test, self.y_test))
+            history = self.model.fit_generator(datagen.flow(self.x_train, self.y_train, batch_size=self.batch_size),
+                                               steps_per_epoch=self.x_train.shape[0] // self.batch_size,
+                                               epochs=self.epochs,
+                                               validation_data=(self.x_test, self.y_test))
+        plt.plot(history.epoch, history.history['val_acc'], color='blue', label='testing accuracy')
+        plt.plot(history.epoch, history.history['acc'], color='red', label='training accuracy')
+        plt.title('Accuracy Rate Curve')
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy Rate')
+        plt.grid()
+        plt.savefig(self.name + '_accuracy.png')
+        plt.close('all')
+        plt.plot(history.epoch, history.history['val_loss'], color='blue', label='testing loss')
+        plt.plot(history.epoch, history.history['loss'], color='red', label='training loss')
+        plt.title('Loss Curve')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.grid()
+        plt.savefig(self.name + '_loss.png')
+        plt.close('all')
 
 
 class CNN(NNBase):
@@ -158,6 +161,8 @@ class DNN(NNBase):
 def main():
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=True, epochs=200, name='cnn_fmp')
+    cnn.train()
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=False, epochs=200, name='cnn')
     cnn.train()
     dnn = DNN(x_train, y_train, x_test, y_test, 10, epochs=200, name='dnn')
     dnn.train()
