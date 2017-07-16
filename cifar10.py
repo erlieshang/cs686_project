@@ -56,6 +56,7 @@ class NNBase(object):
         plt.title('Accuracy Rate Curve')
         plt.xlabel('Epochs')
         plt.ylabel('Accuracy Rate')
+        plt.legend(loc='upper left', frameon=False)
         plt.grid()
         plt.savefig(self.name + '_accuracy.png')
         plt.close('all')
@@ -64,6 +65,7 @@ class NNBase(object):
         plt.title('Loss Curve')
         plt.xlabel('Epochs')
         plt.ylabel('Loss')
+        plt.legend(loc='upper left', frameon=False)
         plt.grid()
         plt.savefig(self.name + '_loss.png')
         plt.close('all')
@@ -142,12 +144,16 @@ class DNN(NNBase):
 
 def main():
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=True, epochs=200, name='cnn_fmp')
+    x_train = x_train[0: 100]
+    y_train = y_train[0: 100]
+    x_test = x_test[0: 100]
+    y_test = y_test[0: 100]
+    # cnn = CNN(x_train, y_train, x_test, y_test, 10, data_augmentation=False, use_fmp=True, epochs=2, name='cnn_fmp')
+    # cnn.train()
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=False, epochs=2, name='cnn')
     cnn.train()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=False, epochs=200, name='cnn')
-    cnn.train()
-    dnn = DNN(x_train, y_train, x_test, y_test, 10, epochs=200, name='dnn')
-    dnn.train()
+    # dnn = DNN(x_train, y_train, x_test, y_test, 10, epochs=200, name='dnn')
+    # dnn.train()
 
 
 if __name__ == "__main__":
