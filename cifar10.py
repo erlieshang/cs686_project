@@ -1,7 +1,6 @@
 # Author: erlie.shang@uwaterloo.ca
 import keras
 from keras.datasets import cifar10
-from keras.preprocessing.image import ImageDataGenerator
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Lambda
 from keras.layers import Conv2D, MaxPooling2D
@@ -10,15 +9,13 @@ import matplotlib.pyplot as plt
 
 
 class NNBase(object):
-    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, data_augmentation=True,
-                 batch_size=32, name='Default'):
+    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, batch_size=32, name='Default'):
         self.x_train = x_train.astype('float32') / 255
         self.y_train = keras.utils.to_categorical(y_train, num_classes)
         self.x_test = x_test.astype('float32') / 255
         self.y_test = keras.utils.to_categorical(y_test, num_classes)
         self.num_classes = num_classes
         self.epochs = epochs
-        self.data_aug = data_augmentation
         self.batch_size = batch_size
         self.name = name
         self.model = self._build_model()
@@ -28,29 +25,8 @@ class NNBase(object):
         return model
 
     def train(self):
-        if not self.data_aug:
-            print('Not using data augmentation.')
-            history = self.model.fit(self.x_train, self.y_train, batch_size=self.batch_size, epochs=self.epochs,
-                                     validation_data=(self.x_test, self.y_test))
-        else:
-            print('Using real-time data augmentation.')
-            datagen = ImageDataGenerator(
-                featurewise_center=False,
-                samplewise_center=False,
-                featurewise_std_normalization=False,
-                samplewise_std_normalization=False,
-                zca_whitening=False,
-                rotation_range=0,
-                width_shift_range=0.1,
-                height_shift_range=0.1,
-                horizontal_flip=True,
-                vertical_flip=False)
-
-            datagen.fit(self.x_train)
-            history = self.model.fit_generator(datagen.flow(self.x_train, self.y_train, batch_size=self.batch_size),
-                                               steps_per_epoch=self.x_train.shape[0] // self.batch_size,
-                                               epochs=self.epochs,
-                                               validation_data=(self.x_test, self.y_test))
+        history = self.model.fit(self.x_train, self.y_train, batch_size=self.batch_size, epochs=self.epochs,
+                                 validation_data=(self.x_test, self.y_test))
         plt.plot(history.epoch, history.history['val_acc'], color='blue', label='testing accuracy')
         plt.plot(history.epoch, history.history['acc'], color='red', label='training accuracy')
         plt.title('Accuracy Rate Curve')
@@ -70,10 +46,10 @@ class NNBase(object):
 
 
 class CNN(NNBase):
-    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, data_augmentation=True,
+    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200,
                  batch_size=32, use_fmp=False, name='default'):
         self.use_fmp = use_fmp
-        NNBase.__init__(self, x_train, y_train, x_test, y_test, num_classes, epochs, data_augmentation, batch_size, name)
+        NNBase.__init__(self, x_train, y_train, x_test, y_test, num_classes, epochs, batch_size, name)
 
     def _build_model(self):
         model = Sequential()
@@ -123,7 +99,6 @@ class DNN(NNBase):
         self.x_test = self.x_test.reshape(self.x_test.shape[0], self.input_size)
         self.num_classes = num_classes
         self.epochs = epochs
-        self.data_aug = False
         self.batch_size = batch_size
         self.name = name
         self.model = self._build_model()
@@ -142,9 +117,13 @@ class DNN(NNBase):
 
 def main():
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=True, epochs=200, name='cnn_fmp')
+    x_train = x_train[0:31]
+    y_train = y_train[0:31]
+    x_test = x_test[0:31]
+    y_test = y_test[0:31]
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=True, epochs=2, name='cnn_fmp')
     cnn.train()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=False, epochs=200, name='cnn')
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=False, epochs=2, name='cnn')
     cnn.train()
     dnn = DNN(x_train, y_train, x_test, y_test, 10, epochs=200, name='dnn')
     dnn.train()
