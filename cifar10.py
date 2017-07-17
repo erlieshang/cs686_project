@@ -6,6 +6,34 @@ from keras.layers import Dense, Dropout, Flatten, Lambda
 from keras.layers import Conv2D, MaxPooling2D
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from keras.engine.topology import Layer
+
+
+class MixedPooling(Layer):
+    def __init__(self, mixed_rate, pooling_size=(2,2), strides=(1,1), padding='VALID', **kwargs):
+        self.mixed_rate = mixed_rate
+        self.pooling_size = [1]
+        self.pooling_size.extend(pooling_size)
+        self.pooling_size.extend([1])
+        self.strides = [1]
+        self.strides.extend(strides)
+        self.strides.extend([1])
+        self.padding = padding
+        self._os = None
+        super(MixedPooling, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.kernel = self.add_weight(name='ratio', shape=(1,), initializer='uniform', trainable=True)
+        super(MixedPooling, self).build(input_shape)
+
+    def compute_output_shape(self, input_shape):
+        return self._os
+
+    def call(self, x):
+        max_output = tf.nn.max_pool(x, self.pooling_size, self.strides, self.padding)
+        self._os = max_output.shape
+        avg_output = tf.nn.avg_pool(x, self.pooling_size, self.strides, self.padding)
+        return self.kernel * max_output + (1 - self.kernel) * avg_output
 
 
 class NNBase(object):
@@ -27,6 +55,9 @@ class NNBase(object):
     def train(self):
         history = self.model.fit(self.x_train, self.y_train, batch_size=self.batch_size, epochs=self.epochs,
                                  validation_data=(self.x_test, self.y_test))
+        self.plot_history(history)
+
+    def plot_history(self, history):
         plt.plot(history.epoch, history.history['val_acc'], color='blue', label='testing accuracy')
         plt.plot(history.epoch, history.history['acc'], color='red', label='training accuracy')
         plt.title('Accuracy Rate Curve')
@@ -119,14 +150,14 @@ class DNN(NNBase):
 
 def main():
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    x_train = x_train[0:31]
-    y_train = y_train[0:31]
-    x_test = x_test[0:31]
-    y_test = y_test[0:31]
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=True, epochs=2, name='cnn_fmp')
+    # x_train = x_train[0:31]
+    # y_train = y_train[0:31]
+    # x_test = x_test[0:31]
+    # y_test = y_test[0:31]
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=True, epochs=200, name='cnn_fmp')
     cnn.train()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=False, epochs=2, name='cnn')
-    cnn.train()
+    # cnn = CNN(x_train, y_train, x_test, y_test, 10, use_fmp=False, epochs=2, name='cnn')
+    # cnn.train()
     dnn = DNN(x_train, y_train, x_test, y_test, 10, epochs=200, name='dnn')
     dnn.train()
 
