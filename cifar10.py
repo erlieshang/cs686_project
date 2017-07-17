@@ -7,6 +7,31 @@ from keras.layers import Conv2D, MaxPooling2D
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from keras.engine.topology import Layer
+import pickle
+
+
+class FactionalPooling(Layer):
+    def __init__(self, pool_ratio=(1.44, 1.44), pseudo_random=None, overlapping=None, **kwargs):
+        self.pool_ratio = [1.0]
+        self.pool_ratio.extend(pool_ratio)
+        self.pool_ratio.extend([1.0])
+        self.pseudo_random = pseudo_random
+        self.overlapping = overlapping
+        self._ox = None
+        self._oy = None
+        super(FactionalPooling, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        super(FactionalPooling, self).build(input_shape)
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], self._ox, self._oy, input_shape[3])
+
+    def call(self, x):
+        output = tf.nn.fractional_max_pool(x, self.pool_ratio, self.pseudo_random, self.overlapping)
+        self._ox = output[0].shape[1].value
+        self._oy = output[0].shape[2].value
+        return output[0]
 
 
 class MixedPooling(Layer):
@@ -56,6 +81,9 @@ class NNBase(object):
     def train(self):
         history = self.model.fit(self.x_train, self.y_train, batch_size=self.batch_size, epochs=self.epochs,
                                  validation_data=(self.x_test, self.y_test))
+        output = open(self.name + 'data.pkl', 'wb')
+        pickle.dump([history.epoch, history.history], output)
+        output.close()
         self.plot_history(history)
 
     def plot_history(self, history):
@@ -91,7 +119,7 @@ class CNN(NNBase):
         model.add(Conv2D(32, (3, 3), padding='same', input_shape=self.x_train.shape[1:], activation='relu'))
         model.add(Conv2D(32, (3, 3), activation='relu'))
         if self.pool_method == 'fmp':
-            model.add(Lambda(self.fmp))
+            model.add(FactionalPooling(pool_ratio=(1.44, 1.44)))
         elif self.pool_method == 'max':
             model.add(MaxPooling2D(pool_size=(2, 2)))
         elif self.pool_method == 'mixed':
@@ -103,7 +131,7 @@ class CNN(NNBase):
         model.add(Conv2D(64, (3, 3), padding='same', activation='relu'))
         model.add(Conv2D(64, (3, 3), activation='relu'))
         if self.pool_method == 'fmp':
-            model.add(Lambda(self.fmp))
+            model.add(FactionalPooling(pool_ratio=(1.44, 1.44)))
         elif self.pool_method == 'max':
             model.add(MaxPooling2D(pool_size=(2, 2)))
         elif self.pool_method == 'mixed':
@@ -158,17 +186,21 @@ class DNN(NNBase):
 
 def main():
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='fmp', epochs=100, name='cnn_fmp')
+    x_train = x_train[0:100]
+    y_train = y_train[0:100]
+    x_test = x_test[0:100]
+    y_test = y_test[0:100]
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='fmp', epochs=2, name='cnn_fmp')
     cnn.train()
-    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, epochs=100, name='cnn')
-    cnn.train()
-    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    dnn = DNN(x_train, y_train, x_test, y_test, 10, epochs=100, name='dnn')
-    dnn.train()
-    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='mixed', epochs=100, name='cnn_mixed_trainable')
-    cnn.train()
+    # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+    # cnn = CNN(x_train, y_train, x_test, y_test, 10, epochs=2, name='cnn')
+    # cnn.train()
+    # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+    # dnn = DNN(x_train, y_train, x_test, y_test, 10, epochs=100, name='dnn')
+    # dnn.train()
+    # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+    # cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='mixed', epochs=5, name='cnn_mixed_trainable')
+    # cnn.train()
 
 
 if __name__ == "__main__":
