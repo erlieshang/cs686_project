@@ -2,11 +2,12 @@
 import keras
 from keras.datasets import cifar10
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Lambda
+from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from keras.engine.topology import Layer
+from keras import backend as K
 import pickle
 
 
@@ -35,7 +36,8 @@ class FactionalPooling(Layer):
 
 
 class MixedPooling(Layer):
-    def __init__(self, pool_size=(2, 2), strides=(1, 1), padding='VALID', **kwargs):
+    def __init__(self, pool_size=(2, 2), strides=(1, 1), padding='VALID', mixed_rate=None, **kwargs):
+        self.mixed_rate = mixed_rate
         self.pool_size = [1]
         self.pool_size.extend(pool_size)
         self.pool_size.extend([1])
@@ -48,7 +50,8 @@ class MixedPooling(Layer):
         super(MixedPooling, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.kernel = self.add_weight(name='ratio', shape=(1,), initializer='uniform', trainable=True)
+        if not self.mixed_rate:
+            self.kernel = self.add_weight(name='ratio', shape=(1,), initializer='uniform', trainable=True)
         super(MixedPooling, self).build(input_shape)
 
     def compute_output_shape(self, input_shape):
@@ -59,6 +62,39 @@ class MixedPooling(Layer):
         self._ox = max_output.shape[1].value
         self._oy = max_output.shape[2].value
         avg_output = tf.nn.avg_pool(x, self.pool_size, self.strides, self.padding)
+        if not self.mixed_rate:
+            return self.kernel * max_output + (1 - self.kernel) * avg_output
+        else:
+            return self.mixed_rate * max_output + (1 - self.mixed_rate) * avg_output
+
+
+class GatedPooling(Layer):
+    def __init__(self, pool_size=(2, 2), strides=(1, 1), padding='VALID', **kwargs):
+        self.pool_size = [1]
+        self.pool_size.extend(pool_size)
+        self.pool_size.extend([1])
+        self.strides = [1]
+        self.strides.extend(strides)
+        self.strides.extend([1])
+        self.padding = padding
+        self._ox = None
+        self._oy = None
+        super(GatedPooling, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.kernel = self.add_weight(name='ratio', shape=(self.pool_size[1], self.pool_size[2]), initializer='uniform', trainable=True)
+        super(GatedPooling, self).build(input_shape)
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], self._ox, self._oy, input_shape[3])
+
+    def call(self, x):
+        max_output = tf.nn.max_pool(x, self.pool_size, self.strides, self.padding)
+        self._ox = max_output.shape[1].value
+        self._oy = max_output.shape[2].value
+        avg_output = tf.nn.avg_pool(x, self.pool_size, self.strides, self.padding)
+        mk = K.eval(max_output)
+        print(type(mk))
         return self.kernel * max_output + (1 - self.kernel) * avg_output
 
 
@@ -124,6 +160,8 @@ class CNN(NNBase):
             model.add(MaxPooling2D(pool_size=(2, 2)))
         elif self.pool_method == 'mixed':
             model.add(MixedPooling(pool_size=(2, 2)))
+        elif self.pool_method == 'gated':
+            model.add(GatedPooling(pool_size=(2, 2)))
         else:
             assert False
         model.add(Dropout(0.25))
@@ -136,6 +174,8 @@ class CNN(NNBase):
             model.add(MaxPooling2D(pool_size=(2, 2)))
         elif self.pool_method == 'mixed':
             model.add(MixedPooling(pool_size=(2, 2)))
+        elif self.pool_method == 'gated':
+            model.add(GatedPooling(pool_size=(2, 2)))
         else:
             assert False
         model.add(Dropout(0.25))
@@ -148,11 +188,6 @@ class CNN(NNBase):
         opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
         model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
         return model
-
-    @staticmethod
-    def fmp(x):
-        output = tf.nn.fractional_max_pool(x, [1.0, 1.44, 1.44, 1.0], None, None)
-        return output[0]
 
 
 class DNN(NNBase):
@@ -190,7 +225,7 @@ def main():
     y_train = y_train[0:100]
     x_test = x_test[0:100]
     y_test = y_test[0:100]
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='fmp', epochs=2, name='cnn_fmp')
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='gated', epochs=2, name='cnn_fmp')
     cnn.train()
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # cnn = CNN(x_train, y_train, x_test, y_test, 10, epochs=2, name='cnn')
