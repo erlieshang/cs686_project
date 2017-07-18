@@ -82,7 +82,7 @@ class GatedPooling(Layer):
         super(GatedPooling, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.kernel = self.add_weight(name='ratio', shape=(self.pool_size[1], self.pool_size[2]), initializer='uniform', trainable=True)
+        self.kernel = self.add_weight(name='ratio', shape=(input_shape[1], input_shape[2], input_shape[3]), initializer='uniform', trainable=True)
         super(GatedPooling, self).build(input_shape)
 
     def compute_output_shape(self, input_shape):
@@ -93,13 +93,12 @@ class GatedPooling(Layer):
         self._ox = max_output.shape[1].value
         self._oy = max_output.shape[2].value
         avg_output = tf.nn.avg_pool(x, self.pool_size, self.strides, self.padding)
-        mk = K.eval(max_output)
-        print(type(mk))
-        return self.kernel * max_output + (1 - self.kernel) * avg_output
+        alpha = K.mean(self.kernel * x)
+        return alpha * max_output + (1 - alpha) * avg_output
 
 
 class NNBase(object):
-    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, batch_size=32, name='Default'):
+    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, batch_size=50, name='Default'):
         self.x_train = x_train.astype('float32') / 255
         self.y_train = keras.utils.to_categorical(y_train, num_classes)
         self.x_test = x_test.astype('float32') / 255
@@ -146,39 +145,35 @@ class NNBase(object):
 
 class CNN(NNBase):
     def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200,
-                 batch_size=32, pool_method='max', name='default'):
+                 batch_size=50, pool_method='max', name='default'):
         self.pool_method = pool_method
         NNBase.__init__(self, x_train, y_train, x_test, y_test, num_classes, epochs, batch_size, name)
+
+    def add_pooling(self, model):
+        if self.pool_method == 'fmp':
+            model.add(FactionalPooling(pool_ratio=(1.44, 1.44)))
+        elif self.pool_method == 'max':
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+        elif self.pool_method == 'mixed_fix':
+            model.add(MixedPooling(pool_size=(2, 2), mixed_rate=0.5))
+        elif self.pool_method == 'mixed':
+            model.add(MixedPooling(pool_size=(2, 2)))
+        elif self.pool_method == 'gated':
+            model.add(GatedPooling(pool_size=(2, 2)))
+        else:
+            assert False
 
     def _build_model(self):
         model = Sequential()
 
         model.add(Conv2D(32, (3, 3), padding='same', input_shape=self.x_train.shape[1:], activation='relu'))
         model.add(Conv2D(32, (3, 3), activation='relu'))
-        if self.pool_method == 'fmp':
-            model.add(FactionalPooling(pool_ratio=(1.44, 1.44)))
-        elif self.pool_method == 'max':
-            model.add(MaxPooling2D(pool_size=(2, 2)))
-        elif self.pool_method == 'mixed':
-            model.add(MixedPooling(pool_size=(2, 2)))
-        elif self.pool_method == 'gated':
-            model.add(GatedPooling(pool_size=(2, 2)))
-        else:
-            assert False
+        self.add_pooling(model)
         model.add(Dropout(0.25))
 
         model.add(Conv2D(64, (3, 3), padding='same', activation='relu'))
         model.add(Conv2D(64, (3, 3), activation='relu'))
-        if self.pool_method == 'fmp':
-            model.add(FactionalPooling(pool_ratio=(1.44, 1.44)))
-        elif self.pool_method == 'max':
-            model.add(MaxPooling2D(pool_size=(2, 2)))
-        elif self.pool_method == 'mixed':
-            model.add(MixedPooling(pool_size=(2, 2)))
-        elif self.pool_method == 'gated':
-            model.add(GatedPooling(pool_size=(2, 2)))
-        else:
-            assert False
+        self.add_pooling(model)
         model.add(Dropout(0.25))
 
         model.add(Flatten())
@@ -192,7 +187,7 @@ class CNN(NNBase):
 
 
 class DNN(NNBase):
-    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, batch_size=32, name='default'):
+    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, batch_size=50, name='default'):
         self.x_train = x_train.astype('float32') / 255
         self.y_train = keras.utils.to_categorical(y_train, num_classes)
         self.x_test = x_test.astype('float32') / 255
@@ -222,11 +217,11 @@ class DNN(NNBase):
 
 def main():
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    x_train = x_train[0:100]
-    y_train = y_train[0:100]
-    x_test = x_test[0:100]
-    y_test = y_test[0:100]
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='max', epochs=2, name='cnn_fmp')
+    x_train = x_train[0:200]
+    y_train = y_train[0:200]
+    x_test = x_test[0:200]
+    y_test = y_test[0:200]
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='gated', epochs=2, name='mixed_fix')
     cnn.train()
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # cnn = CNN(x_train, y_train, x_test, y_test, 10, epochs=2, name='cnn')
