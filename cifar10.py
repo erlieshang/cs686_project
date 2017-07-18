@@ -4,6 +4,7 @@ from keras.datasets import cifar10
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
+from keras.layers.normalization import BatchNormalization
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from keras.engine.topology import Layer
@@ -116,7 +117,7 @@ class NNBase(object):
     def train(self):
         history = self.model.fit(self.x_train, self.y_train, batch_size=self.batch_size, epochs=self.epochs,
                                  validation_data=(self.x_test, self.y_test))
-        output = open(self.name + 'data.pkl', 'wb')
+        output = open(self.name + '_data.pkl', 'wb')
         pickle.dump([history.epoch, history.history], output)
         output.close()
         self.plot_history(history)
@@ -153,7 +154,7 @@ class CNN(NNBase):
         if self.pool_method == 'fmp':
             model.add(FactionalPooling(pool_ratio=(1.44, 1.44)))
         elif self.pool_method == 'max':
-            model.add(MaxPooling2D(pool_size=(2, 2)))
+            model.add(MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same'))
         elif self.pool_method == 'mixed_fix':
             model.add(MixedPooling(pool_size=(2, 2), mixed_rate=0.5))
         elif self.pool_method == 'mixed':
@@ -166,19 +167,18 @@ class CNN(NNBase):
     def _build_model(self):
         model = Sequential()
 
-        model.add(Conv2D(32, (3, 3), padding='same', input_shape=self.x_train.shape[1:], activation='relu'))
-        model.add(Conv2D(32, (3, 3), activation='relu'))
+        model.add(Conv2D(64, (5, 5), padding='same', input_shape=self.x_train.shape[1:], activation='relu'))
         self.add_pooling(model)
-        model.add(Dropout(0.25))
+        model.add(BatchNormalization())
 
-        model.add(Conv2D(64, (3, 3), padding='same', activation='relu'))
-        model.add(Conv2D(64, (3, 3), activation='relu'))
+        model.add(Conv2D(64, (5, 5), padding='same', activation='relu'))
+        model.add(BatchNormalization())
         self.add_pooling(model)
         model.add(Dropout(0.25))
 
         model.add(Flatten())
-        model.add(Dense(512, activation='relu'))
-        model.add(Dropout(0.5))
+        model.add(Dense(384, activation='relu'))
+        model.add(Dense(192, activation='relu'))
         model.add(Dense(self.num_classes, activation='softmax'))
 
         opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
@@ -221,7 +221,7 @@ def main():
     y_train = y_train[0:200]
     x_test = x_test[0:200]
     y_test = y_test[0:200]
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='fully_gated', epochs=2, name='fully_gated')
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='max', epochs=2, name='cnn')
     cnn.train()
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # cnn = CNN(x_train, y_train, x_test, y_test, 10, epochs=2, name='cnn')
