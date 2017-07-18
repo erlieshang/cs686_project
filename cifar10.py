@@ -130,6 +130,7 @@ class NNBase(object):
         plt.ylabel('Accuracy Rate')
         plt.legend(loc='upper left', frameon=False)
         plt.grid()
+        plt.ylim(0, 1)
         plt.savefig(self.name + '_accuracy.png')
         plt.close('all')
         plt.plot(history.epoch, history.history['val_loss'], color='blue', label='testing loss')
@@ -225,7 +226,7 @@ def main():
     y_train = y_train[0:100]
     x_test = x_test[0:100]
     y_test = y_test[0:100]
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='gated', epochs=2, name='cnn_fmp')
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='max', epochs=2, name='cnn_fmp')
     cnn.train()
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # cnn = CNN(x_train, y_train, x_test, y_test, 10, epochs=2, name='cnn')
