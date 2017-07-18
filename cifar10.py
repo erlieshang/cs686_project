@@ -158,7 +158,7 @@ class CNN(NNBase):
             model.add(MixedPooling(pool_size=(2, 2), mixed_rate=0.5))
         elif self.pool_method == 'mixed':
             model.add(MixedPooling(pool_size=(2, 2)))
-        elif self.pool_method == 'gated':
+        elif self.pool_method == 'fully_gated':
             model.add(GatedPooling(pool_size=(2, 2)))
         else:
             assert False
@@ -221,7 +221,7 @@ def main():
     y_train = y_train[0:200]
     x_test = x_test[0:200]
     y_test = y_test[0:200]
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='gated', epochs=2, name='mixed_fix')
+    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='fully_gated', epochs=2, name='fully_gated')
     cnn.train()
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # cnn = CNN(x_train, y_train, x_test, y_test, 10, epochs=2, name='cnn')
