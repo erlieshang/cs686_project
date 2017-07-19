@@ -3,7 +3,7 @@ import keras
 from keras.datasets import cifar10
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
-from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Conv2D, MaxPooling2D, SimpleRNN
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from keras.engine.topology import Layer
@@ -215,14 +215,40 @@ class DNN(NNBase):
         return model
 
 
+class IRNN(NNBase):
+    def __init__(self, x_train, y_train, x_test, y_test, num_classes, epochs=200, batch_size=50, name='irnn'):
+        self.x_train = x_train.astype('float32') / 255
+        self.y_train = keras.utils.to_categorical(y_train, num_classes)
+        self.x_test = x_test.astype('float32') / 255
+        self.y_test = keras.utils.to_categorical(y_test, num_classes)
+        self.x_train = self.x_train.reshape(x_train.shape[0], -1, 1)
+        self.x_test = self.x_test.reshape(x_test.shape[0], -1, 1)
+        self.num_classes = num_classes
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.name = name
+        self.model = self._build_model()
+
+    def _build_model(self):
+        model = Sequential()
+        model.add(SimpleRNN(100, activation='relu', kernel_initializer=keras.initializers.RandomNormal(stddev=0.001),
+                            recurrent_initializer=keras.initializers.Identity(gain=1.0),
+                            input_shape=self.x_train.shape[1:]))
+        model.add(Dense(self.num_classes, activation='softmax'))
+        opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
+        model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+        return model
+
+
+
 def main():
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     x_train = x_train[0:200]
     y_train = y_train[0:200]
     x_test = x_test[0:200]
     y_test = y_test[0:200]
-    cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='fully_gated', epochs=2, name='fully_gated')
-    cnn.train()
+    # cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='fully_gated', epochs=2, name='fully_gated')
+    # cnn.train()
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # cnn = CNN(x_train, y_train, x_test, y_test, 10, epochs=2, name='cnn')
     # cnn.train()
@@ -232,6 +258,8 @@ def main():
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     # cnn = CNN(x_train, y_train, x_test, y_test, 10, pool_method='mixed', epochs=5, name='cnn_mixed_trainable')
     # cnn.train()
+    irnn = IRNN(x_train, y_train, x_test, y_test, 10, epochs=100, name='irnn')
+    irnn.train()
 
 
 if __name__ == "__main__":
